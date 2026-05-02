@@ -243,4 +243,302 @@ class Admin extends BaseController
         </script>
         <?php
     }
+    public function master_data_anggota() 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelAnggota = new \App\Models\M_Anggota();
+        $data['data_anggota'] = $modelAnggota->getDataAnggota(['is_delete_anggota' => '0'])->getResultArray();
+        
+        echo view('Backend/Template/header', $data);
+        echo view('Backend/Template/sidebar', $data);
+        echo view('Backend/MasterAnggota/master-data-anggota', $data);
+        echo view('Backend/Template/footer', $data);
+    }
+
+    public function input_data_anggota() 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        echo view('Backend/Template/header');
+        echo view('Backend/Template/sidebar');
+        echo view('Backend/MasterAnggota/input-anggota');
+        echo view('Backend/Template/footer');
+    }
+
+    public function simpan_data_anggota() 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelAnggota = new \App\Models\M_Anggota();
+        
+        $nama = $this->request->getPost('nama');
+        $jk = $this->request->getPost('jenis_kelamin');
+        $tlp = $this->request->getPost('no_tlp');
+        $alamat = $this->request->getPost('alamat');
+        $email = $this->request->getPost('email');
+
+        $hasil = $modelAnggota->autoNumber()->getRowArray();
+        if (!$hasil) {
+            $id = "AGT001";
+        } else {
+            $kode = $hasil['id_anggota'];
+            $noUrut = (int) substr($kode, -3);
+            $noUrut++;
+            $id = "AGT" . sprintf("%03s", $noUrut);
+        }
+
+        $dataSimpan = [
+            'id_anggota'        => $id,
+            'nama_anggota'      => $nama,
+            'jenis_kelamin'     => $jk,
+            'no_tlp'            => $tlp,
+            'alamat'            => $alamat,
+            'email'             => $email,
+            'password_anggota'  => password_hash('pass_anggota', PASSWORD_DEFAULT),
+            'is_delete_anggota' => '0',
+            'created_at'        => date('Y-m-d H:i:s'),
+            'updated_at'        => date('Y-m-d H:i:s')
+        ];
+
+        $modelAnggota->saveDataAnggota($dataSimpan);
+        session()->setFlashdata('success', 'Data Anggota Berhasil Ditambahkan!');
+        return redirect()->to(base_url('admin/master-data-anggota'));
+    }
+
+    public function edit_data_anggota($idEdit) 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelAnggota = new \App\Models\M_Anggota();
+        
+        $dataAnggota = $modelAnggota->getDataAnggota(['sha1(id_anggota)' => $idEdit])->getRowArray();
+        session()->set(['idUpdateAgt' => $dataAnggota['id_anggota']]);
+        $data['data_anggota'] = $dataAnggota;
+        
+        echo view('Backend/Template/header', $data);
+        echo view('Backend/Template/sidebar', $data);
+        echo view('Backend/MasterAnggota/edit-anggota', $data);
+        echo view('Backend/Template/footer', $data);
+    }
+
+    public function update_data_anggota() 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelAnggota = new \App\Models\M_Anggota();
+        $idUpdate = session()->get('idUpdateAgt');
+
+        $dataUpdate = [
+            'nama_anggota'  => $this->request->getPost('nama'),
+            'jenis_kelamin' => $this->request->getPost('jenis_kelamin'),
+            'no_tlp'        => $this->request->getPost('no_tlp'),
+            'alamat'        => $this->request->getPost('alamat'),
+            'email'         => $this->request->getPost('email'),
+            'updated_at'    => date("Y-m-d H:i:s")
+        ];
+        
+        $modelAnggota->updateDataAnggota($dataUpdate, ['id_anggota' => $idUpdate]);
+        session()->remove('idUpdateAgt');
+        session()->setFlashdata('success', 'Data Anggota Berhasil Diperbaharui!');
+        return redirect()->to(base_url('admin/master-data-anggota'));
+    }
+
+    public function hapus_data_anggota($idHapus) 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelAnggota = new \App\Models\M_Anggota();
+        $dataUpdate = [
+            'is_delete_anggota' => '1',
+            'updated_at'        => date("Y-m-d H:i:s")
+        ];
+        $modelAnggota->updateDataAnggota($dataUpdate, ['sha1(id_anggota)' => $idHapus]);
+        session()->setFlashdata('success', 'Data Anggota Berhasil Dihapus!');
+        return redirect()->to(base_url('admin/master-data-anggota'));
+    }
+
+    public function master_data_rak() 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelRak = new \App\Models\M_Rak();
+        $data['data_rak'] = $modelRak->getDataRak(['is_delete_rak' => '0'])->getResultArray();
+        
+        echo view('Backend/Template/header', $data);
+        echo view('Backend/Template/sidebar', $data);
+        echo view('Backend/MasterRak/master-data-rak', $data);
+        echo view('Backend/Template/footer', $data);
+    }
+
+    public function input_data_rak() 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        echo view('Backend/Template/header');
+        echo view('Backend/Template/sidebar');
+        echo view('Backend/MasterRak/input-rak');
+        echo view('Backend/Template/footer');
+    }
+
+    public function simpan_data_rak() 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelRak = new \App\Models\M_Rak();
+        $nama = $this->request->getPost('nama_rak');
+
+        $hasil = $modelRak->autoNumber()->getRowArray();
+        if (!$hasil) {
+            $id = "RAK001";
+        } else {
+            $kode = $hasil['id_rak'];
+            $noUrut = (int) substr($kode, -3);
+            $noUrut++;
+            $id = "RAK" . sprintf("%03s", $noUrut);
+        }
+
+        $dataSimpan = [
+            'id_rak'        => $id,
+            'nama_rak'      => $nama,
+            'is_delete_rak' => '0',
+            'created_at'    => date('Y-m-d H:i:s'),
+            'updated_at'    => date('Y-m-d H:i:s')
+        ];
+
+        $modelRak->saveDataRak($dataSimpan);
+        session()->setFlashdata('success', 'Data Rak Berhasil Ditambahkan!');
+        return redirect()->to(base_url('admin/master-data-rak'));
+    }
+
+    public function edit_data_rak($idEdit) 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelRak = new \App\Models\M_Rak();
+        
+        $dataRak = $modelRak->getDataRak(['sha1(id_rak)' => $idEdit])->getRowArray();
+        session()->set(['idUpdateRak' => $dataRak['id_rak']]);
+        $data['data_rak'] = $dataRak;
+        
+        echo view('Backend/Template/header', $data);
+        echo view('Backend/Template/sidebar', $data);
+        echo view('Backend/MasterRak/edit-rak', $data);
+        echo view('Backend/Template/footer', $data);
+    }
+
+    public function update_data_rak() 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelRak = new \App\Models\M_Rak();
+        $idUpdate = session()->get('idUpdateRak');
+
+        $dataUpdate = [
+            'nama_rak'   => $this->request->getPost('nama_rak'),
+            'updated_at' => date("Y-m-d H:i:s")
+        ];
+        
+        $modelRak->updateDataRak($dataUpdate, ['id_rak' => $idUpdate]);
+        session()->remove('idUpdateRak');
+        session()->setFlashdata('success', 'Data Rak Berhasil Diperbaharui!');
+        return redirect()->to(base_url('admin/master-data-rak'));
+    }
+
+    public function hapus_data_rak($idHapus) 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelRak = new \App\Models\M_Rak();
+        $dataUpdate = [
+            'is_delete_rak' => '1',
+            'updated_at'    => date("Y-m-d H:i:s")
+        ];
+        $modelRak->updateDataRak($dataUpdate, ['sha1(id_rak)' => $idHapus]);
+        session()->setFlashdata('success', 'Data Rak Berhasil Dihapus!');
+        return redirect()->to(base_url('admin/master-data-rak'));
+    }
+
+    public function master_data_kategori() 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelKategori = new \App\Models\M_Kategori();
+        $data['data_kategori'] = $modelKategori->getDataKategori(['is_delete_kategori' => '0'])->getResultArray();
+        
+        echo view('Backend/Template/header', $data);
+        echo view('Backend/Template/sidebar', $data);
+        echo view('Backend/MasterKategori/master-data-kategori', $data);
+        echo view('Backend/Template/footer', $data);
+    }
+
+    public function input_data_kategori() 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        echo view('Backend/Template/header');
+        echo view('Backend/Template/sidebar');
+        echo view('Backend/MasterKategori/input-kategori');
+        echo view('Backend/Template/footer');
+    }
+
+    public function simpan_data_kategori() 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelKategori = new \App\Models\M_Kategori();
+        $nama = $this->request->getPost('nama_kategori');
+
+        $hasil = $modelKategori->autoNumber()->getRowArray();
+        if (!$hasil) {
+            $id = "KTG001";
+        } else {
+            $kode = $hasil['id_kategori'];
+            $noUrut = (int) substr($kode, -3);
+            $noUrut++;
+            $id = "KTG" . sprintf("%03s", $noUrut);
+        }
+
+        $dataSimpan = [
+            'id_kategori'        => $id,
+            'nama_kategori'      => $nama,
+            'is_delete_kategori' => '0',
+            'created_at'         => date('Y-m-d H:i:s'),
+            'updated_at'         => date('Y-m-d H:i:s')
+        ];
+
+        $modelKategori->saveDataKategori($dataSimpan);
+        session()->setFlashdata('success', 'Data Kategori Berhasil Ditambahkan!');
+        return redirect()->to(base_url('admin/master-data-kategori'));
+    }
+
+    public function edit_data_kategori($idEdit) 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelKategori = new \App\Models\M_Kategori();
+        
+        $dataKategori = $modelKategori->getDataKategori(['sha1(id_kategori)' => $idEdit])->getRowArray();
+        session()->set(['idUpdateKtg' => $dataKategori['id_kategori']]);
+        $data['data_kategori'] = $dataKategori;
+        
+        echo view('Backend/Template/header', $data);
+        echo view('Backend/Template/sidebar', $data);
+        echo view('Backend/MasterKategori/edit-kategori', $data);
+        echo view('Backend/Template/footer', $data);
+    }
+
+    public function update_data_kategori() 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelKategori = new \App\Models\M_Kategori();
+        $idUpdate = session()->get('idUpdateKtg');
+
+        $dataUpdate = [
+            'nama_kategori' => $this->request->getPost('nama_kategori'),
+            'updated_at'    => date("Y-m-d H:i:s")
+        ];
+        
+        $modelKategori->updateDataKategori($dataUpdate, ['id_kategori' => $idUpdate]);
+        session()->remove('idUpdateKtg');
+        session()->setFlashdata('success', 'Data Kategori Berhasil Diperbaharui!');
+        return redirect()->to(base_url('admin/master-data-kategori'));
+    }
+
+    public function hapus_data_kategori($idHapus) 
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelKategori = new \App\Models\M_Kategori();
+        $dataUpdate = [
+            'is_delete_kategori' => '1',
+            'updated_at'         => date("Y-m-d H:i:s")
+        ];
+        $modelKategori->updateDataKategori($dataUpdate, ['sha1(id_kategori)' => $idHapus]);
+        session()->setFlashdata('success', 'Data Kategori Berhasil Dihapus!');
+        return redirect()->to(base_url('admin/master-data-kategori'));
+    }
 }
