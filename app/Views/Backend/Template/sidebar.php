@@ -44,6 +44,31 @@
                         <span class="glyphicon glyphicon-share-alt"></span> Data Buku
                     </a>
                 </li>
+                <li class="parent">
+    <a data-toggle="collapse" href="#sub-item-transaksi">
+        <span class="glyphicon glyphicon-transfer"></span> Transaksi 
+        <span data-toggle="collapse" href="#sub-item-transaksi" class="icon pull-right">
+            <em class="glyphicon glyphicon-s glyphicon-plus"></em>
+        </span>
+    </a>
+    <ul class="children collapse" id="sub-item-transaksi">
+        <li>
+            <a class="" href="<?= base_url('admin/peminjaman-step-1'); ?>">
+                <span class="glyphicon glyphicon-share-alt"></span> Pinjam Buku Baru
+            </a>
+        </li>
+        <li>
+            <a class="" href="<?= base_url('admin/data-transaksi-peminjaman'); ?>">
+                <span class="glyphicon glyphicon-share-alt"></span> Data Peminjaman
+            </a>
+        </li>
+        <li>
+            <a class="" href="<?= base_url('admin/data-pengembalian'); ?>">
+                <span class="glyphicon glyphicon-share-alt"></span> Data Pengembalian
+            </a>
+        </li>
+    </ul>
+</li>
             </ul>
         </li>
         

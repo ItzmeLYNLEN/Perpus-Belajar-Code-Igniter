@@ -2,6 +2,18 @@
 
 namespace App\Controllers;
 use App\Models\M_Admin;
+use App\Models\M_Anggota;
+use App\Models\M_Rak;
+use App\Models\M_Kategori;
+use App\Models\M_Buku;
+use App\Models\M_Peminjaman;
+use Endroid\QrCode\Builder\Builder;
+use Endroid\QrCode\Encoding\Encoding;
+use Endroid\QrCode\ErrorCorrectionLevel;
+use Endroid\QrCode\Label\LabelAlignment;
+use Endroid\QrCode\Label\Font\NotoSans;
+use Endroid\QrCode\RoundBlockSizeMode;
+use Endroid\QrCode\Writer\PngWriter;
 
 class Admin extends BaseController
 {
@@ -744,5 +756,301 @@ class Admin extends BaseController
         session()->remove('idUpdateBuku');
         session()->setFlashdata('success', 'Data Buku Berhasil Diperbaharui!');
         return redirect()->to(base_url('admin/master-data-buku'));
+    }
+
+    public function peminjaman_step1()
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        
+        $modelAnggota = new \App\Models\M_Anggota();
+        
+        $uri = service('uri');
+        $page = $uri->getSegment(2);
+        
+        $data['page'] = $page;
+        $data['web_title'] = "Transaksi Peminjaman";
+        $data['data_anggota'] = $modelAnggota->getDataAnggota(['is_delete_anggota' => '0'])->getResultArray();
+        
+        echo view('Backend/Template/header', $data);
+        echo view('Backend/Template/sidebar', $data);
+        echo view('Backend/Transaksi/peminjaman-step-1', $data);
+        echo view('Backend/Template/footer', $data);
+    }
+
+    public function peminjaman_step2()
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        
+        $modelAnggota = new \App\Models\M_Anggota();
+        $modelBuku = new \App\Models\M_Buku();
+        $modelPeminjaman = new \App\Models\M_Peminjaman();
+        
+        $uri = service('uri');
+        $page = $uri->getSegment(2);
+        
+        if ($this->request->getPost("id_anggota")) {
+            $idAnggota = $this->request->getPost("id_anggota");
+            session()->set(['idAgt' => $idAnggota]);
+        } else {
+            $idAnggota = session()->get('idAgt');
+        }
+
+        $cekPeminjaman = $modelPeminjaman->getDataPeminjaman(['id_anggota' => $idAnggota, 'status_transaksi' => "Berjalan"])->getNumRows();
+        
+        if ($cekPeminjaman > 0) {
+            session()->setFlashdata('error', "Transaksi Tidak Dapat Dilakukan, Masih Ada Transaksi Peminjaman yang Belum Diselesaikan");
+            ?>
+            <script>history.go(-1);</script>
+            <?php
+        } else {
+            $dataAnggota = $modelAnggota->getDataAnggota(['id_anggota' => $idAnggota])->getRowArray();
+            $dataBuku = $modelBuku->getDataBukuJoin(['tbl_buku.is_delete_buku' => '0'])->getResultArray();
+            
+            $jumlahTemp = $modelPeminjaman->getDataTemp(['id_anggota' => $idAnggota])->getNumRows();
+            $dataTemp = $modelPeminjaman->getDataTempJoin(['tbl_temp_peminjaman.id_anggota' => $idAnggota])->getResultArray();
+            
+            $data['jumlahTemp'] = $jumlahTemp;
+            $data['page'] = $page;
+            $data['web_title'] = "Transaksi Peminjaman";
+            $data['dataAnggota'] = $dataAnggota;
+            $data['dataBuku'] = $dataBuku;
+            $data['dataTemp'] = $dataTemp;
+            
+            echo view('Backend/Template/header', $data);
+            echo view('Backend/Template/sidebar', $data);
+            echo view('Backend/Transaksi/peminjaman-step-2', $data);
+            echo view('Backend/Template/footer', $data);
+        }
+    }
+
+    public function simpan_temp_pinjam($idBuku)
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        
+        $modelPeminjaman = new \App\Models\M_Peminjaman();
+        $modelBuku = new \App\Models\M_Buku();
+        
+        $dataBuku = $modelBuku->getDataBuku(['sha1(id_buku)' => $idBuku])->getRowArray();
+        
+        $adaTemp = $modelPeminjaman->getDataTemp(['sha1(id_buku)' => $idBuku, 'id_anggota' => session()->get('idAgt')])->getNumRows();
+        $adaBerjalan = $modelPeminjaman->getDataPeminjaman(['id_anggota' => session()->get('idAgt'), 'status_transaksi' => "Berjalan"])->getNumRows();
+        
+        if ($adaTemp > 0) {
+            session()->setFlashdata('error', "Satu Anggota Hanya Bisa Meminjam 1 Buku dengan Judul yang Sama!");
+            ?>
+            <script>history.go(-1);</script>
+            <?php
+        } elseif ($adaBerjalan > 0) {
+            session()->setFlashdata('error', "Masih ada transaksi peminjaman yang belum diselesaikan!");
+            ?>
+            <script>history.go(-1);</script>
+            <?php
+        } else {
+            $dataSimpanTemp = [
+                'id_anggota'  => session()->get('idAgt'),
+                'id_buku'     => $dataBuku['id_buku'],
+                'jumlah_temp' => '1'
+            ];
+            
+            $modelPeminjaman->saveDataTemp($dataSimpanTemp);
+            
+            $stok = $dataBuku['jumlah_eksemplar'] - 1;
+            $dataUpdate = ['jumlah_eksemplar' => $stok];
+            $modelBuku->updateDataBuku($dataUpdate, ['sha1(id_buku)' => $idBuku]);
+            
+            return redirect()->to(base_url('admin/peminjaman-step-2'));
+        }
+    }
+
+    public function hapus_peminjaman($idBuku)
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        
+        $modelPeminjaman = new \App\Models\M_Peminjaman();
+        $modelBuku = new \App\Models\M_Buku();
+        
+        $dataBuku = $modelBuku->getDataBuku(['sha1(id_buku)' => $idBuku])->getRowArray();
+        
+        $modelPeminjaman->hapusDataTemp(['sha1(id_buku)' => $idBuku, 'id_anggota' => session()->get('idAgt')]);
+        
+        $stok = $dataBuku['jumlah_eksemplar'] + 1;
+        $dataUpdate = ['jumlah_eksemplar' => $stok];
+        $modelBuku->updateDataBuku($dataUpdate, ['sha1(id_buku)' => $idBuku]);
+        
+        return redirect()->to(base_url('admin/peminjaman-step-2'));
+    }
+
+    public function simpan_transaksi_peminjaman()
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        
+        $modelPeminjaman = new \App\Models\M_Peminjaman();
+        
+        $idPeminjaman = date("YmdHis");
+        $time_sekarang = time();
+        $kembali = date("Y-m-d", strtotime("+7 days", $time_sekarang));
+        
+        $jumlahPinjam = $modelPeminjaman->getDataTemp(['id_anggota' => session()->get('idAgt')])->getNumRows();
+        
+        $dataQR = $idPeminjaman;
+        $labelQR = $idPeminjaman;
+        
+        $result = Builder::create()
+            ->writer(new PngWriter())
+            ->writerOptions([])
+            ->data($dataQR)
+            ->encoding(new Encoding("UTF-8"))
+            ->errorCorrectionLevel(ErrorCorrectionLevel::High)
+            ->size(300)
+            ->margin(10)
+            ->roundBlockSizeMode(RoundBlockSizeMode::Margin)
+            ->logoPath(FCPATH . 'Assets/logo_ubsi.png') 
+            ->logoResizeToWidth(50)
+            ->logoPunchoutBackground(true)
+            ->labelText($labelQR)
+            ->labelFont(new NotoSans(20))
+            ->labelAlignment(LabelAlignment::Center)
+            ->validateResult(false)
+            ->build();
+            
+        $namaQR = "qr_" . $idPeminjaman . ".png";
+        $result->saveToFile(FCPATH . 'Assets/qr_code/' . $namaQR);
+        
+        $dataSimpan = [
+            'no_peminjaman'      => $idPeminjaman,
+            'id_anggota'         => session()->get('idAgt'),
+            'tgl_pinjam'         => date("Y-m-d"),
+            'total_pinjam'       => $jumlahPinjam,
+            'id_admin'           => session()->get('ses_id'),
+            'status_transaksi'   => "Berjalan",
+            'status_ambil_buku'  => "Sudah Diambil",
+            'qr_code'            => $namaQR
+        ];
+        
+        $modelPeminjaman->saveDataPeminjaman($dataSimpan);
+        
+        $dataTemp = $modelPeminjaman->getDataTemp(['id_anggota' => session()->get('idAgt')])->getResultArray();
+        
+        foreach($dataTemp as $sementara) {
+            $simpanDetail = [
+                'no_peminjaman' => $idPeminjaman,
+                'id_buku'       => $sementara['id_buku'],
+                'status_pinjam' => "Sedang Dipinjam",
+                'perpanjangan'  => "2",
+                'tgl_kembali'   => $kembali
+            ];
+            $modelPeminjaman->saveDataDetail($simpanDetail);
+        }
+        
+        $modelPeminjaman->hapusDataTemp(['id_anggota' => session()->get('idAgt')]);
+        session()->remove('idAgt');
+        session()->setFlashdata('success', 'Data Peminjaman Buku Berhasil Disimpan!');
+        
+        return redirect()->to(base_url('admin/data-transaksi-peminjaman'));
+    }
+
+    public function data_transaksi_peminjaman()
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelPeminjaman = new \App\Models\M_Peminjaman();
+        
+        $data['data_peminjaman'] = $modelPeminjaman->getDataPeminjamanJoin()->getResultArray();
+        
+        echo view('Backend/Template/header', $data);
+        echo view('Backend/Template/sidebar', $data);
+        echo view('Backend/Transaksi/data-peminjaman', $data);
+        echo view('Backend/Template/footer', $data);
+    }
+
+    public function detail_peminjaman($id)
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelPeminjaman = new \App\Models\M_Peminjaman();
+        $db = \Config\Database::connect();
+        
+        $data['data_peminjaman'] = $modelPeminjaman->getDataPeminjamanJoin(['sha1(tbl_peminjaman.no_peminjaman)' => $id])->getRowArray();
+        
+        $builder = $db->table('tbl_detail_peminjaman');
+        $builder->select('*');
+        $builder->join('tbl_buku', 'tbl_buku.id_buku = tbl_detail_peminjaman.id_buku', 'LEFT');
+        $builder->where('sha1(tbl_detail_peminjaman.no_peminjaman)', $id);
+        $data['data_detail'] = $builder->get()->getResultArray();
+        
+        echo view('Backend/Template/header', $data);
+        echo view('Backend/Template/sidebar', $data);
+        echo view('Backend/Transaksi/detail-peminjaman', $data);
+        echo view('Backend/Template/footer', $data);
+    }
+
+    public function data_pengembalian()
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelPengembalian = new \App\Models\M_Pengembalian();
+
+        $data['data_pengembalian'] = $modelPengembalian->getDataPengembalian()->getResultArray();
+
+        echo view('Backend/Template/header', $data);
+        echo view('Backend/Template/sidebar', $data);
+        echo view('Backend/Transaksi/data-pengembalian', $data);
+        echo view('Backend/Template/footer', $data);
+    }
+
+    public function form_pengembalian($id)
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelPeminjaman = new \App\Models\M_Peminjaman();
+        $db = \Config\Database::connect();
+
+        $dataPeminjaman = $modelPeminjaman->getDataPeminjamanJoin(['sha1(tbl_peminjaman.no_peminjaman)' => $id])->getRowArray();
+
+        $builder = $db->table('tbl_detail_peminjaman');
+        $builder->select('*');
+        $builder->join('tbl_buku', 'tbl_buku.id_buku = tbl_detail_peminjaman.id_buku', 'LEFT');
+        $builder->where('sha1(tbl_detail_peminjaman.no_peminjaman)', $id);
+        $dataDetail = $builder->get()->getResultArray();
+
+        $data['data_peminjaman'] = $dataPeminjaman;
+        $data['data_detail'] = $dataDetail;
+
+        echo view('Backend/Template/header', $data);
+        echo view('Backend/Template/sidebar', $data);
+        echo view('Backend/Transaksi/form-pengembalian', $data);
+        echo view('Backend/Template/footer', $data);
+    }
+
+    public function simpan_pengembalian()
+    {
+        if (session()->get('ses_id') == "") return redirect()->to(base_url('admin/login-admin'));
+        $modelPengembalian = new \App\Models\M_Pengembalian();
+        $modelPeminjaman = new \App\Models\M_Peminjaman();
+        $modelBuku = new \App\Models\M_Buku();
+        $db = \Config\Database::connect();
+
+        $noPeminjaman = $this->request->getPost('no_peminjaman');
+        $denda = $this->request->getPost('denda');
+
+        $dataPengembalian = [
+            'no_peminjaman'    => $noPeminjaman,
+            'tgl_pengembalian' => date('Y-m-d'),
+            'denda'            => $denda,
+            'id_admin'         => session()->get('ses_id')
+        ];
+        $modelPengembalian->saveDataPengembalian($dataPengembalian);
+
+        $modelPeminjaman->updateDataPeminjaman(['status_transaksi' => 'Selesai'], ['no_peminjaman' => $noPeminjaman]);
+
+        $builder = $db->table('tbl_detail_peminjaman');
+        $detailBuku = $builder->getWhere(['no_peminjaman' => $noPeminjaman])->getResultArray();
+
+        foreach ($detailBuku as $b) {
+            $modelPeminjaman->updateDataDetail(['status_pinjam' => 'Sudah Dikembalikan'], ['no_peminjaman' => $noPeminjaman, 'id_buku' => $b['id_buku']]);
+
+            $dataBuku = $modelBuku->getDataBuku(['id_buku' => $b['id_buku']])->getRowArray();
+            $stokBaru = $dataBuku['jumlah_eksemplar'] + 1;
+            $modelBuku->updateDataBuku(['jumlah_eksemplar' => $stokBaru], ['id_buku' => $b['id_buku']]);
+        }
+
+        session()->setFlashdata('success', 'Buku Berhasil Dikembalikan & Stok Telah Diperbarui!');
+        return redirect()->to(base_url('admin/data-pengembalian'));
     }
 }

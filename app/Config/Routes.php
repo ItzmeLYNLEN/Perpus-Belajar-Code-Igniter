@@ -60,3 +60,19 @@ $routes->post('/admin/simpan-buku', 'Admin::simpan_buku');
 $routes->get('/admin/edit-buku/(:alphanum)', 'Admin::edit_buku/$1');
 $routes->post('/admin/update-buku', 'Admin::update_buku');
 $routes->get('/admin/hapus-buku/(:alphanum)', 'Admin::hapus_buku/$1');
+
+//peminjaman
+$routes->get('/admin/data-transaksi-peminjaman', 'Admin::data_transaksi_peminjaman');
+$routes->get('/admin/peminjaman-step-1', 'Admin::peminjaman_step1');
+$routes->get('/admin/tes-qr', 'Admin::tes_qr');
+$routes->get('/admin/peminjaman-step-2', 'Admin::peminjaman_step2');
+$routes->post('/admin/peminjaman-step-2', 'Admin::peminjaman_step2');
+$routes->get('/admin/simpan-temp-pinjam/(:alphanum)', 'Admin::simpan_temp_pinjam/$1');
+$routes->get('/admin/hapus-temp/(:alphanum)', 'Admin::hapus_peminjaman/$1');
+$routes->get('/admin/simpan-transaksi-peminjaman', 'Admin::simpan_transaksi_peminjaman');
+$routes->get('/admin/detail-peminjaman/(:alphanum)', 'Admin::detail_peminjaman/$1');
+
+//pengembalian
+$routes->get('/admin/data-pengembalian', 'Admin::data_pengembalian');
+$routes->get('/admin/form-pengembalian/(:alphanum)', 'Admin::form_pengembalian/$1');
+$routes->post('/admin/simpan-pengembalian', 'Admin::simpan_pengembalian');
